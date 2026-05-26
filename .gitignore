@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+hypnoforge.db
+output/
+.DS_Store
+.gemini/
+static/audio/
+static/video/
+static/subtitles/
+backend/static/audio/
+backend/static/video/
+backend/static/subtitles/
