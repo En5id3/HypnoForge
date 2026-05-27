@@ -148,9 +148,9 @@ class AudioEngine:
         
         return audio_data
 
-    def compile_hypnosis_session(self, narration_path: str, music_theme: str, binaural_freq: str, task_dir: str, calmness: int = 0, ambient_volume: float = 0.45) -> str:
+    def compile_hypnosis_session(self, narration_path: str, music_theme: str, binaural_freq: str, task_dir: str, calmness: int = 0, ambient_volume: float = 0.45, session_length: int = 0) -> str:
         """
-        Synthesizes binaural beats and ambient backing track matching the narration duration.
+        Synthesizes binaural beats and ambient backing track matching the target session duration.
         Saves intermediate tracks and uses FFmpeg to mix them all down into a final high-quality MP3.
         Adjusts ambient music volume and binaural beats volume based on closeness to "deep calmness" and user selection.
         """
@@ -158,16 +158,21 @@ class AudioEngine:
         sr, narration_data = wavfile.read(narration_path)
         duration_sec = len(narration_data) / sr
         
-        logger.info(f"Narration duration: {duration_sec:.2f} seconds. Synthesizing layers...")
+        # Calculate target duration based on target session length (in minutes)
+        target_duration = duration_sec
+        if session_length > 0:
+            target_duration = max(duration_sec, session_length * 60.0)
+            
+        logger.info(f"Narration duration: {duration_sec:.2f}s, Target duration: {target_duration:.2f}s. Synthesizing layers...")
         
         # 2. Generate Binaural Beats
-        binaural_data = self.generate_binaural_beats(duration_sec, binaural_freq)
+        binaural_data = self.generate_binaural_beats(target_duration, binaural_freq)
         binaural_data = self.apply_fades(binaural_data, fade_in_sec=5.0, fade_out_sec=10.0)
         binaural_wav_path = os.path.join(task_dir, "binaural_layer.wav")
         wavfile.write(binaural_wav_path, self.sample_rate, binaural_data)
         
         # 3. Generate Ambient Music Theme
-        ambient_data = self.generate_ambient_track(duration_sec, music_theme)
+        ambient_data = self.generate_ambient_track(target_duration, music_theme)
         ambient_data = self.apply_fades(ambient_data, fade_in_sec=8.0, fade_out_sec=15.0)
         ambient_wav_path = os.path.join(task_dir, "ambient_layer.wav")
         wavfile.write(ambient_wav_path, self.sample_rate, ambient_data)
@@ -185,7 +190,7 @@ class AudioEngine:
             "-i", narration_path,
             "-i", ambient_wav_path,
             "-i", binaural_wav_path,
-            "-filter_complex", f"[0:a]volume=1.0[a0];[1:a]volume={ambient_vol:.2f}[a1];[2:a]volume={binaural_vol:.2f}[a2];[a0][a1][a2]amix=inputs=3:duration=first:dropout_transition=5[a]",
+            "-filter_complex", f"[0:a]volume=1.0[a0];[1:a]volume={ambient_vol:.2f}[a1];[2:a]volume={binaural_vol:.2f}[a2];[a0][a1][a2]amix=inputs=3:duration=longest:dropout_transition=5[a]",
             "-map", "[a]",
             "-b:a", "192k",
             final_mp3_path

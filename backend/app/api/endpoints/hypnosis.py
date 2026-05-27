@@ -48,7 +48,7 @@ async def run_generation_pipeline(gen_id: str, prompt: str, custom_script: Union
         
         # Step 3: Layering ambient music & binaural frequencies
         update_generation_status(gen_id, "layering", db)
-        final_mp3_local = audio_engine.compile_hypnosis_session(narration_wav, music_theme, binaural_freq, task_dir, calmness=audio_calmness, ambient_volume=ambient_volume)
+        final_mp3_local = audio_engine.compile_hypnosis_session(narration_wav, music_theme, binaural_freq, task_dir, calmness=audio_calmness, ambient_volume=ambient_volume, session_length=session_length)
         
         # Move final audio to static directory
         static_audio_dir = os.path.join(settings.STATIC_DIR, "audio")
