@@ -18,7 +18,9 @@ VOICE_MAP = {
     "relaxed_female": "en-GB-SoniaNeural",
     "british_male": "en-GB-ThomasNeural",
     "australian_female": "en-AU-NatashaNeural",
-    "indian_female": "en-IN-NeerjaNeural"
+    "indian_female": "en-IN-NeerjaNeural",
+    "hindi_male": "hi-IN-MadhurNeural",
+    "hindi_female": "hi-IN-SwaraNeural"
 }
 
 class TTSService:
