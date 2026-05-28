@@ -25,6 +25,8 @@ class Generation(Base):
     ambient_volume = Column(Float, default=0.45)
     
     status = Column(String(30), default="pending")  # pending, rewriting, synthesizing, layering, video, completed, failed
+    video_theme = Column(String(50), default="sacred_geometry")
+    video_format = Column(String(50), default="long_form")
     audio_url = Column(String(255), nullable=True)
     video_url = Column(String(255), nullable=True)
     subtitles_url = Column(String(255), nullable=True)

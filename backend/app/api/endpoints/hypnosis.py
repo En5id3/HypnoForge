@@ -27,7 +27,7 @@ def update_generation_status(gen_id: str, status: str, db: Session, **kwargs):
             setattr(gen, key, value)
         db.commit()
 
-async def run_generation_pipeline(gen_id: str, prompt: str, custom_script: Union[str, None], style: str, voice: str, music_theme: str, binaural_freq: str, session_length: int, audio_speed: float, audio_pitch: float, audio_calmness: int, ambient_volume: float, db: Session):
+async def run_generation_pipeline(gen_id: str, prompt: str, custom_script: Union[str, None], style: str, voice: str, music_theme: str, binaural_freq: str, session_length: int, audio_speed: float, audio_pitch: float, audio_calmness: int, ambient_volume: float, video_theme: str, video_format: str, db: Session):
     # Create local temporary task directory
     task_dir = os.path.join(settings.OUTPUT_DIR, f"task_{gen_id}")
     os.makedirs(task_dir, exist_ok=True)
@@ -70,7 +70,7 @@ async def run_generation_pipeline(gen_id: str, prompt: str, custom_script: Union
         update_generation_status(gen_id, "video", db, audio_url=audio_url, subtitles_url=subtitles_url)
         
         loop_mp4_local = os.path.join(task_dir, "loop_temp.mp4")
-        video_engine.generate_loop_video(loop_mp4_local)
+        video_engine.generate_loop_video(loop_mp4_local, theme=video_theme, video_format=video_format)
         
         static_video_dir = os.path.join(settings.STATIC_DIR, "video")
         os.makedirs(static_video_dir, exist_ok=True)
@@ -127,6 +127,8 @@ def start_generation(payload: GenerationCreate, background_tasks: BackgroundTask
         audio_pitch=payload.audio_pitch,
         audio_calmness=payload.audio_calmness,
         ambient_volume=payload.ambient_volume,
+        video_theme=payload.video_theme or "sacred_geometry",
+        video_format=payload.video_format or "long_form",
         status="pending"
     )
     db.add(db_gen)
@@ -148,6 +150,8 @@ def start_generation(payload: GenerationCreate, background_tasks: BackgroundTask
         db_gen.audio_pitch,
         db_gen.audio_calmness,
         db_gen.ambient_volume,
+        db_gen.video_theme,
+        db_gen.video_format,
         db
     )
     
@@ -165,3 +169,34 @@ def get_generation_status(gen_id: str, db: Session = Depends(get_db)):
             detail=f"Generation ID {gen_id} not found."
         )
     return gen
+
+@router.get("/preview/music/{theme}")
+def get_music_preview(theme: str):
+    """
+    Synthesize and stream a 10-second high-quality preview of the selected ambient soundscape.
+    """
+    import io
+    from scipy.io import wavfile
+    from fastapi.responses import StreamingResponse
+    
+    clean_theme = theme.lower().replace(" ", "_")
+    duration = 10.0
+    
+    try:
+        # Generate raw stereo soundscape data using our audio engine
+        stereo_data = audio_engine.generate_ambient_track(duration, clean_theme)
+        # Apply gentle 2-second fade-in/fade-out for smooth preview playback
+        stereo_data = audio_engine.apply_fades(stereo_data, fade_in_sec=2.0, fade_out_sec=2.0)
+        
+        # Write to a memory byte buffer as standard WAV
+        byte_io = io.BytesIO()
+        wavfile.write(byte_io, audio_engine.sample_rate, stereo_data)
+        byte_io.seek(0)
+        
+        return StreamingResponse(byte_io, media_type="audio/wav")
+    except Exception as e:
+        logger.error(f"Preview generation failed for theme '{theme}': {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Preview generation failed: {str(e)}"
+        )

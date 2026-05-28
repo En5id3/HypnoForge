@@ -462,7 +462,33 @@
     }
 
     // --- CustomizationPanel Component ---
-    function CustomizationPanel({ style, setStyle, voice, setVoice, musicTheme, setMusicTheme, binauralFreq, setBinauralFreq, sessionLength, setSessionLength, audioSpeed, setAudioSpeed, audioPitch, setAudioPitch, audioCalmness, setAudioCalmness, ambientVolume, setAmbientVolume }) {
+    function CustomizationPanel({ style, setStyle, voice, setVoice, musicTheme, setMusicTheme, binauralFreq, setBinauralFreq, sessionLength, setSessionLength, audioSpeed, setAudioSpeed, audioPitch, setAudioPitch, audioCalmness, setAudioCalmness, ambientVolume, setAmbientVolume, videoTheme, setVideoTheme, videoFormat, setVideoFormat }) {
+      const [previewingTheme, setPreviewingTheme] = useState(null);
+      const previewAudioRef = useRef(null);
+
+      useEffect(() => {
+        previewAudioRef.current = new Audio();
+        previewAudioRef.current.loop = true;
+        return () => {
+          if (previewAudioRef.current) {
+            previewAudioRef.current.pause();
+          }
+        };
+      }, []);
+
+      const toggleThemePreview = (themeId) => {
+        if (previewingTheme === themeId) {
+          previewAudioRef.current.pause();
+          setPreviewingTheme(null);
+        } else {
+          previewAudioRef.current.pause();
+          previewAudioRef.current.src = `/api/preview/music/${themeId}`;
+          previewAudioRef.current.load();
+          previewAudioRef.current.play().catch((e) => console.warn("Audio preview play failed:", e));
+          setPreviewingTheme(themeId);
+        }
+      };
+
       const stylesList = [
         { id: 'Ericksonian', label: 'Ericksonian', desc: 'Permissive suggestions' },
         { id: 'Sleep Induction', label: 'Sleep Induction', desc: 'Guided sleep transitions' },
@@ -489,14 +515,24 @@
         { id: 'cosmic_drones', label: 'Cosmic', icon: 'Space', color: 'text-indigo-500' },
         { id: 'tibetan_ambience', label: 'Bells', icon: 'Bell', color: 'text-amber-500' },
         { id: 'meditation_pads', label: 'Pads', icon: 'Eye', color: 'text-purple-500' },
-        { id: 'forest_ambience', label: 'Wind', icon: 'Wind', color: 'text-emerald-500' }
+        { id: 'forest_ambience', label: 'Wind', icon: 'Wind', color: 'text-emerald-500' },
+        { id: 'crystal_resonance', label: 'Singing Bowls', icon: 'Compass', color: 'text-teal-500' },
+        { id: 'celestial_chimes', label: 'Wind Chimes', icon: 'Sparkles', color: 'text-yellow-500' },
+        { id: 'temple_garden', label: 'Temple Stream', icon: 'Activity', color: 'text-emerald-500' },
+        { id: 'shamanic_heartbeat', label: 'Heartbeat Drum', icon: 'Heart', color: 'text-red-500' }
       ];
 
       const binauralList = [
-        { id: 'none', label: 'None', freq: '0 Hz', desc: 'Stereo output' },
-        { id: 'delta', label: 'Delta', freq: '2.5 Hz', desc: 'Sleep aid' },
-        { id: 'theta', label: 'Theta', freq: '6.0 Hz', desc: 'Deep trance' },
-        { id: 'alpha', label: 'Alpha', freq: '10.0 Hz', desc: 'Relaxation' }
+        { id: 'none', label: 'None', freq: '0 Hz', desc: 'Raw stereo output' },
+        { id: 'delta', label: 'Delta', freq: '2.5 Hz', desc: 'Deep sleep brainwave hum' },
+        { id: 'theta', label: 'Theta', freq: '6.0 Hz', desc: 'Dreamy hypno-trance induction' },
+        { id: 'alpha', label: 'Alpha', freq: '10.0 Hz', desc: 'Calming state relaxation' },
+        { id: 'beta', label: 'Beta', freq: '18.0 Hz', desc: 'Cognitive focus & alert thinking' },
+        { id: 'gamma', label: 'Gamma', freq: '40.0 Hz', desc: 'Peak insight, memory & cognition' },
+        { id: 'epsilon', label: 'Epsilon', freq: '0.5 Hz', desc: 'Deepest sub-bass grounding' },
+        { id: 'schumann', freq: '7.83 Hz', label: 'Schumann', desc: 'Planetary Earth resonance' },
+        { id: 'solfeggio_528', freq: '6 Hz / 528 Hz', label: 'Solfeggio 528', desc: 'Transformation healing hum' },
+        { id: 'cosmic_432', freq: '4 Hz / 432 Hz', label: 'Cosmic 432', desc: 'Natural harmonic alignment' }
       ];
 
       return React.createElement(
@@ -513,7 +549,7 @@
         React.createElement(
           'div',
           { className: 'space-y-3' },
-          React.createElement('label', { className: 'text-xs font-bold text-slate-500 tracking-wider uppercase' }, 'Clinical Preset Style'),
+          React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Clinical Preset Style'),
           React.createElement(
             'div',
             { className: 'grid grid-cols-2 gap-3' },
@@ -536,7 +572,7 @@
         React.createElement(
           'div',
           { className: 'space-y-3' },
-          React.createElement('label', { className: 'text-xs font-bold text-slate-500 tracking-wider uppercase' }, 'Narrator Vocal Profile'),
+          React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Narrator Vocal Profile'),
           React.createElement(
             'div',
             { className: 'grid grid-cols-2 gap-3' },
@@ -559,23 +595,45 @@
         React.createElement(
           'div',
           { className: 'space-y-3' },
-          React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Atmospheric Ambient Soundscape'),
+          React.createElement('label', { className: 'text-xs font-bold text-slate-555 tracking-wider uppercase' }, 'Atmospheric Ambient Soundscape'),
           React.createElement(
             'div',
-            { className: 'grid grid-cols-3 gap-3' },
+            { className: 'grid grid-cols-2 gap-3' },
             musicThemes.map((m) => {
               const Icon = Lucide[m.icon] || Lucide.Music;
+              const isSelected = musicTheme === m.id;
+              const isPreviewing = previewingTheme === m.id;
+              
               return React.createElement(
-                'button',
-                {
-                  key: m.id,
-                  onClick: () => setMusicTheme(m.id),
-                  className: `flex flex-col items-center justify-center p-3 rounded-2xl border min-h-[48px] transition-all duration-200 ${
-                    musicTheme === m.id ? 'bg-teal-500/10 border-teal-500 shadow-glow-teal' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                  }`
-                },
-                React.createElement(Icon, { className: `w-5 h-5 mb-2 ${musicTheme === m.id ? m.color : 'text-slate-400'}` }),
-                React.createElement('span', { className: `text-[10px] font-bold ${musicTheme === m.id ? 'text-teal-600' : 'text-slate-600'}` }, m.label)
+                'div',
+                { key: m.id, className: 'relative' },
+                React.createElement(
+                  'button',
+                  {
+                    onClick: () => setMusicTheme(m.id),
+                    className: `w-full flex items-center justify-between p-3 rounded-2xl border min-h-[48px] pr-12 transition-all duration-200 ${
+                      isSelected ? 'bg-teal-500/10 border-teal-500 shadow-glow-teal' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                    }`
+                  },
+                  React.createElement('div', { className: 'flex items-center gap-3' },
+                    React.createElement(Icon, { className: `w-5 h-5 shrink-0 ${isSelected ? m.color : 'text-slate-400'}` }),
+                    React.createElement('span', { className: `text-xs font-bold text-left ${isSelected ? 'text-teal-650' : 'text-slate-800'}` }, m.label)
+                  )
+                ),
+                React.createElement(
+                  'button',
+                  {
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      toggleThemePreview(m.id);
+                    },
+                    className: `absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-200 ${
+                      isPreviewing ? 'bg-teal-500 border-teal-500 text-white shadow-glow-teal' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'
+                    }`,
+                    title: isPreviewing ? 'Pause Preview' : 'Listen Preview'
+                  },
+                  React.createElement(isPreviewing ? Lucide.Pause : Lucide.Play, { className: 'w-3.5 h-3.5' })
+                )
               );
             })
           ),
@@ -601,44 +659,26 @@
         React.createElement(
           'div',
           { className: 'space-y-3' },
-          React.createElement('label', { className: 'text-xs font-bold text-slate-500 tracking-wider uppercase' }, 'Brainwave Tuning Waves'),
+          React.createElement('label', { className: 'text-xs font-bold text-slate-555 tracking-wider uppercase' }, 'Brainwave Tuning Waves'),
           React.createElement(
             'div',
-            { className: 'grid grid-cols-2 gap-3' },
+            { className: 'max-h-64 overflow-y-auto pr-1 border border-slate-200 rounded-2xl p-2 bg-slate-50/50 space-y-2 scrollbar-thin' },
             binauralList.map((b) => React.createElement(
               'button',
               {
                 key: b.id,
                 onClick: () => setBinauralFreq(b.id),
-                className: `text-left p-3.5 rounded-2xl border min-h-[48px] transition-all duration-200 ${
-                  binauralFreq === b.id ? 'bg-primary-500/10 border-primary-500 shadow-glow' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                className: `w-full text-left p-3.5 rounded-xl border transition-all duration-200 ${
+                  binauralFreq === b.id ? 'bg-primary-500/10 border-primary-500 shadow-glow' : 'bg-white border-slate-200 hover:bg-slate-50'
                 }`
               },
               React.createElement('div', { className: 'flex justify-between items-center' },
                 React.createElement('span', { className: `font-bold text-sm ${binauralFreq === b.id ? 'text-primary-600' : 'text-slate-800'}` }, b.label),
                 React.createElement('span', { className: 'text-[9px] font-mono bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300' }, b.freq)
               ),
-              React.createElement('div', { className: 'text-[10px] text-slate-500 mt-0.5' }, b.desc)
+              React.createElement('div', { className: 'text-[10px] text-slate-500 mt-0.5 leading-normal' }, b.desc)
             ))
           )
-        ),
-
-        // Length
-        React.createElement(
-          'div',
-          { className: 'space-y-4' },
-          React.createElement(
-            'div',
-            { className: 'flex items-center justify-between' },
-            React.createElement('label', { className: 'text-xs font-bold text-slate-500 tracking-wider uppercase' }, 'Target Length'),
-            React.createElement('span', { className: 'text-sm font-bold text-primary-500' }, `${sessionLength} Minutes`)
-          ),
-          React.createElement('input', {
-            type: 'range', min: '5', max: '45', step: '5',
-            value: sessionLength,
-            onChange: (e) => setSessionLength(parseInt(e.target.value)),
-            className: 'w-full accent-primary-500 bg-slate-200 h-1.5 rounded-lg appearance-none cursor-pointer border border-slate-300'
-          })
         ),
 
         // Narration Speed Slider
@@ -648,7 +688,7 @@
           React.createElement(
             'div',
             { className: 'flex items-center justify-between' },
-            React.createElement('label', { className: 'text-xs font-bold text-slate-500 tracking-wider uppercase' }, 'Voice Speed'),
+            React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Voice Speed'),
             React.createElement('span', { className: 'text-sm font-bold text-primary-500' }, `${audioSpeed.toFixed(2)}x`)
           ),
           React.createElement('input', {
@@ -666,7 +706,7 @@
           React.createElement(
             'div',
             { className: 'flex items-center justify-between' },
-            React.createElement('label', { className: 'text-xs font-bold text-slate-500 tracking-wider uppercase' }, 'Voice Pitch'),
+            React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Voice Pitch'),
             React.createElement('span', { className: 'text-sm font-bold text-cosmic-purple' }, `${audioPitch.toFixed(2)}x (${audioPitch < 0.95 ? 'Deep' : audioPitch > 1.05 ? 'Soothing' : 'Normal'})`)
           ),
           React.createElement('input', {
@@ -684,7 +724,7 @@
           React.createElement(
             'div',
             { className: 'flex items-center justify-between' },
-            React.createElement('label', { className: 'text-xs font-bold text-slate-500 tracking-wider uppercase' }, 'Deep Calmness (Lowpass)'),
+            React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Deep Calmness (Lowpass)'),
             React.createElement('span', { className: 'text-sm font-bold text-teal-600' }, audioCalmness === 0 ? 'Disabled' : `Lvl ${audioCalmness} (${audioCalmness <= 3 ? 'Warm' : audioCalmness <= 7 ? 'Deep Trance' : 'Stillness'})`)
           ),
           React.createElement('input', {
@@ -693,6 +733,75 @@
             onChange: (e) => setAudioCalmness(parseInt(e.target.value)),
             className: 'w-full accent-teal-500 bg-slate-200 h-1.5 rounded-lg appearance-none cursor-pointer border border-slate-300'
           })
+        ),
+
+        // Video Format Selection
+        React.createElement(
+          'div',
+          { className: 'space-y-3 pt-3 border-t border-slate-200' },
+          React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Video Export Format'),
+          React.createElement(
+            'div',
+            { className: 'grid grid-cols-2 gap-3' },
+            [
+              { id: 'long_form', label: 'Long Form (16:9)', desc: 'Landscape YouTube (1280x720)' },
+              { id: 'short_form', label: 'Short Form Reel (9:16)', desc: 'Vertical Shorts/Reels (720x1280)' }
+            ].map((f) => React.createElement(
+              'button',
+              {
+                key: f.id,
+                onClick: () => setVideoFormat(f.id),
+                className: `text-left p-3.5 rounded-2xl border min-h-[48px] transition-all duration-200 ${
+                  videoFormat === f.id ? 'bg-primary-500/10 border-primary-500 shadow-glow' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                }`
+              },
+              React.createElement('div', { className: `font-bold text-sm ${videoFormat === f.id ? 'text-primary-600' : 'text-slate-800'}` }, f.label),
+              React.createElement('div', { className: 'text-[10px] text-slate-500 mt-0.5 font-medium' }, f.desc)
+            ))
+          )
+        ),
+
+        // Video Theme Selection
+        React.createElement(
+          'div',
+          { className: 'space-y-3 pt-3 border-t border-slate-200' },
+          React.createElement('label', { className: 'text-xs font-bold text-slate-505 tracking-wider uppercase' }, 'Cinematic Visual Engine Theme'),
+          React.createElement(
+            'div',
+            { className: 'max-h-60 overflow-y-auto pr-1 border border-slate-200 rounded-2xl p-2 bg-slate-50/50 space-y-2 scrollbar-thin' },
+            [
+              { id: 'sacred_geometry', label: 'Sacred Geometry', desc: 'Rotating golden ratio shapes & lines' },
+              { id: 'cosmic_nebula', label: 'Cosmic Nebula', desc: 'Floating star fields & glowing clouds' },
+              { id: 'aura_glow', label: 'Aura Glow', desc: 'Pulsing electromagnetic energy fields' },
+              { id: 'quantum_tunnel', label: 'Quantum Tunnel', desc: 'Endless geometry shifting forwards' },
+              { id: 'chakra_alignment', label: 'Chakra Alignment', desc: '7 spinning energetic centers' },
+              { id: 'zen_waves', label: 'Zen Garden Waves', desc: 'Expanding sand ripples & calm lines' },
+              { id: 'dna_helix', label: 'Double Helix', desc: 'Spinning DNA strands of blue & pink light' },
+              { id: 'fibonacci_spiral', label: 'Golden Spiral', desc: 'Fibonacci sunflower seed patterns' },
+              { id: 'subconscious_eye', label: 'Third Eye', desc: 'Mystical pulsing eye with light rays' },
+              { id: 'astral_projection', label: 'Astral Plane', desc: 'Perspective grid warping to the void' },
+              { id: 'fractal_canopy', label: 'Fractal Canopy', desc: 'Breathing tree branches growing upward' },
+              { id: 'ocean_depths', label: 'Ocean Depths', desc: 'Bioluminescent bubbles rising up' },
+              { id: 'starlight_vortex', label: 'Starlight Vortex', desc: 'Stars spiraling into a central black hole' },
+              { id: 'crystal_grid', label: 'Crystal Grid', desc: 'Rotating 3D-like geometric lattice' },
+              { id: 'buddha_halo', label: 'Buddha Halo', desc: 'Concentric rotating spokes & dotted circles' },
+              { id: 'dreamscape', label: 'Dreamscape', desc: 'Soft pastel blobs shifting color and size' },
+              { id: 'eternal_torus', label: 'Eternal Torus', desc: 'Matrix-style wireframe torus flow' },
+              { id: 'chladni_patterns', label: 'Vibrational Resonance', desc: 'Pulsing Chladni pattern plates' },
+              { id: 'hypnotic_spiral', label: 'Hypnotic Spiral', desc: 'Classic contrast spiral spinning inwards' }
+            ].map((vt) => React.createElement(
+              'button',
+              {
+                key: vt.id,
+                onClick: () => setVideoTheme(vt.id),
+                className: `w-full text-left p-3 rounded-xl border transition-all duration-250 ${
+                  videoTheme === vt.id ? 'bg-cosmic-purple/10 border-cosmic-purple shadow-glow-purple' : 'bg-white border-slate-200 hover:bg-slate-50'
+                }`
+              },
+              React.createElement('div', { className: `font-bold text-xs ${videoTheme === vt.id ? 'text-cosmic-purple' : 'text-slate-800'}` }, vt.label),
+              React.createElement('div', { className: 'text-[9px] text-slate-500 mt-0.5 leading-normal' }, vt.desc)
+            ))
+          )
         )
       );
     }
@@ -884,7 +993,7 @@
     }
 
     // --- PlayerPreview Component ---
-    function PlayerPreview({ prompt, script, style, voice, musicTheme, binauralFreq, sessionLength, audioSpeed, audioPitch, audioCalmness, ambientVolume, onGenerationComplete }) {
+    function PlayerPreview({ prompt, script, style, voice, musicTheme, binauralFreq, sessionLength, audioSpeed, audioPitch, audioCalmness, ambientVolume, videoTheme, videoFormat, onGenerationComplete }) {
       const [task, setTask] = useState(null);
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
@@ -939,7 +1048,9 @@
               audio_speed: audioSpeed,
               audio_pitch: audioPitch,
               audio_calmness: audioCalmness,
-              ambient_volume: ambientVolume
+              ambient_volume: ambientVolume,
+              video_theme: videoTheme,
+              video_format: videoFormat
             })
           });
 
@@ -1288,9 +1399,9 @@
                 ),
                 React.createElement(
                   'div',
-                  { className: 'flex gap-4 text-[10px] text-slate-500 font-mono font-bold' },
+                  { className: 'flex gap-4 text-[10px] text-slate-500 font-mono font-bold flex-wrap' },
                   React.createElement('span', null, `${gen.session_length} min`),
-                  React.createElement('span', null, `${gen.style} // ${gen.voice.replace('_', ' ')} // ${gen.binaural_freq} // speed: ${gen.audio_speed.toFixed(1)}x // pitch: ${gen.audio_pitch.toFixed(1)}x // calm: ${gen.audio_calmness} // bg vol: ${Math.round((gen.ambient_volume !== undefined ? gen.ambient_volume : 0.45) * 100)}%`)
+                  React.createElement('span', null, `${gen.style} // ${gen.voice.replace('_', ' ')} // ${gen.binaural_freq} // speed: ${gen.audio_speed.toFixed(1)}x // pitch: ${gen.audio_pitch.toFixed(1)}x // calm: ${gen.audio_calmness} // bg vol: ${Math.round((gen.ambient_volume !== undefined ? gen.ambient_volume : 0.45) * 100)}% // theme: ${(gen.video_theme || 'sacred geometry').replace('_', ' ')} // format: ${gen.video_format === 'short_form' ? 'Reel (9:16)' : 'Landscape (16:9)'}`)
                 )
               ),
               React.createElement(
@@ -1331,6 +1442,8 @@
       const [audioPitch, setAudioPitch] = useState(1.0);
       const [audioCalmness, setAudioCalmness] = useState(0);
       const [ambientVolume, setAmbientVolume] = useState(0.45);
+      const [videoTheme, setVideoTheme] = useState('sacred_geometry');
+      const [videoFormat, setVideoFormat] = useState('long_form');
 
       const handleLoadSettings = (settings) => {
         setStyle(settings.style);
@@ -1342,6 +1455,8 @@
         setAudioPitch(settings.audio_pitch !== undefined ? settings.audio_pitch : 1.0);
         setAudioCalmness(settings.audio_calmness !== undefined ? settings.audio_calmness : 0);
         setAmbientVolume(settings.ambient_volume !== undefined ? settings.ambient_volume : 0.45);
+        setVideoTheme(settings.video_theme !== undefined ? settings.video_theme : 'sacred_geometry');
+        setVideoFormat(settings.video_format !== undefined ? settings.video_format : 'long_form');
         setActiveView('forge');
       };
 
@@ -1403,11 +1518,13 @@
               React.createElement('div', { className: 'lg:col-span-5 space-y-6' },
                 React.createElement(CustomizationPanel, { 
                   style, setStyle, voice, setVoice, musicTheme, setMusicTheme, binauralFreq, setBinauralFreq, sessionLength, setSessionLength,
-                  audioSpeed, setAudioSpeed, audioPitch, setAudioPitch, audioCalmness, setAudioCalmness, ambientVolume, setAmbientVolume
+                  audioSpeed, setAudioSpeed, audioPitch, setAudioPitch, audioCalmness, setAudioCalmness, ambientVolume, setAmbientVolume,
+                  videoTheme, setVideoTheme, videoFormat, setVideoFormat
                 }),
                 React.createElement(PlayerPreview, { 
                   prompt, script, style, voice, musicTheme, binauralFreq, sessionLength,
-                  audioSpeed, audioPitch, audioCalmness, ambientVolume
+                  audioSpeed, audioPitch, audioCalmness, ambientVolume,
+                  videoTheme, videoFormat
                 })
               )
             ),

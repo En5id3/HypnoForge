@@ -12,31 +12,76 @@ BINAURAL_MAP = {
     "delta": 2.5,  # 2.5 Hz difference (Deep Sleep)
     "theta": 6.0,  # 6.0 Hz difference (Deep Trance)
     "alpha": 10.0, # 10.0 Hz difference (Relaxed State)
-    "beta": 18.0   # 18.0 Hz difference (Focus/Awakening)
+    "beta": 18.0,  # 18.0 Hz difference (Focus/Awakening)
+    "gamma": 40.0, # 40.0 Hz difference (Peak Cognition)
+    "epsilon": 0.5, # 0.5 Hz difference (Deep Mystical Union)
+    "schumann": 7.83, # 7.83 Hz difference (Schumann Resonance)
+    "solfeggio_528": 6.0, # 528 Hz Healing (Theta Difference)
+    "cosmic_432": 4.0 # 432 Hz Cosmic (Delta Difference)
 }
 
 class AudioEngine:
     def __init__(self):
         self.sample_rate = 44100
 
-    def generate_binaural_beats(self, duration_sec: float, beat_key: str, carrier_freq: float = 150.0) -> np.ndarray:
+    def generate_binaural_beats(self, duration_sec: float, beat_key: str, carrier_freq: float = 110.0) -> np.ndarray:
         """
-        Generates a stereo binaural beats track.
-        Left channel = carrier_freq, Right channel = carrier_freq + beat_freq.
+        Generates a stereo binaural beats track with elegant, organic, breathing properties.
+        Adds warm harmonics and low-frequency amplitude modulation to make it feel rich and natural.
         """
-        beat_freq = BINAURAL_MAP.get(beat_key.lower(), 0.0)
+        beat_key = beat_key.lower()
+        
+        # Dynamic, elegant carrier & beat frequency mapping
+        if beat_key == "solfeggio_528":
+            carrier_freq = 528.0
+            beat_freq = 6.0  # Theta healing
+        elif beat_key == "cosmic_432":
+            carrier_freq = 432.0
+            beat_freq = 4.0  # Delta alignment
+        elif beat_key == "schumann":
+            carrier_freq = 136.1  # Earth Ohm planetary resonance frequency
+            beat_freq = 7.83  # Schumann resonance
+        elif beat_key == "epsilon":
+            carrier_freq = 90.0   # Deep sub-bass grounding
+            beat_freq = 0.5   # Epsilon wave
+        elif beat_key == "gamma":
+            carrier_freq = 180.0
+            beat_freq = 40.0  # Gamma wave
+        else:
+            # Standard mappings
+            beat_freq = BINAURAL_MAP.get(beat_key, 0.0)
+            # Default warm carriers
+            if beat_key == "delta":
+                carrier_freq = 100.0  # Deep and warm
+            elif beat_key == "theta":
+                carrier_freq = 110.0
+            elif beat_key == "alpha":
+                carrier_freq = 120.0
+            elif beat_key == "beta":
+                carrier_freq = 140.0
+                
         num_samples = int(self.sample_rate * duration_sec)
         t = np.linspace(0, duration_sec, num_samples, endpoint=False)
         
-        if beat_freq == 0.0:
+        if beat_freq == 0.0 or beat_key == "none":
             return np.zeros((num_samples, 2), dtype=np.int16)
         
-        # Soft volume to not overpower narration (e.g. 0.08)
-        volume = 0.08
-        left = np.sin(2 * np.pi * carrier_freq * t) * volume
-        right = np.sin(2 * np.pi * (carrier_freq + beat_freq) * t) * volume
+        # Soft volume to not overpower narration
+        volume = 0.07
         
-        # Combine to stereo
+        # Make the tone elegant by adding a warm second harmonic (octave) and a smooth respiration LFO
+        # Slow breathing cycle (5.5 seconds respiration: 0.18 Hz LFO)
+        breathing_lfo = 0.8 + 0.2 * np.sin(2 * np.pi * 0.18 * t)
+        
+        # Left channel = base carrier + 20% octave harmonic
+        left_wave = np.sin(2 * np.pi * carrier_freq * t) + 0.20 * np.sin(2 * np.pi * (2 * carrier_freq) * t)
+        # Right channel = target beat carrier + 20% octave harmonic
+        right_wave = np.sin(2 * np.pi * (carrier_freq + beat_freq) * t) + 0.20 * np.sin(2 * np.pi * (2 * (carrier_freq + beat_freq)) * t)
+        
+        # Normalize and apply LFO breathing volume envelope
+        left = (left_wave / 1.20) * volume * breathing_lfo
+        right = (right_wave / 1.20) * volume * breathing_lfo
+        
         stereo = np.vstack((left, right)).T
         return (stereo * 32767).astype(np.int16)
 
@@ -107,12 +152,103 @@ class AudioEngine:
             gate = np.where(gate > 0.85, 1.0, 0.0)
             
             mono = mono_wind + (chirp * gate)
+
+        elif theme == "crystal_resonance":
+            # Quartz crystal singing bowls C major triad: 261.63Hz (C4), 329.63Hz (E4), 392.00Hz (G4), 523.25Hz (C5)
+            # Pulsing slowly with independent slow LFOs
+            bowl_c = 0.06 * np.sin(2 * np.pi * 261.63 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.04 * t))
+            bowl_e = 0.04 * np.sin(2 * np.pi * 329.63 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.03 * t))
+            bowl_g = 0.04 * np.sin(2 * np.pi * 392.00 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.02 * t))
+            bowl_c5 = 0.02 * np.sin(2 * np.pi * 523.25 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.015 * t))
+            # Shifting crystalline high hum
+            crystal_hum = 0.01 * np.sin(2 * np.pi * 1046.50 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.05 * t))
+            mono = bowl_c + bowl_e + bowl_g + bowl_c5 + crystal_hum
+
+        elif theme == "celestial_chimes":
+            # Procedural metal wind chimes triggered at random intervals
+            chimes = np.zeros(num_samples)
+            # Seed strikes deterministically based on duration
+            random.seed(int(duration_sec))
+            
+            strike_indices = []
+            curr_idx = int(self.sample_rate * 2)
+            while curr_idx < num_samples - int(self.sample_rate * 3.5):
+                strike_indices.append(curr_idx)
+                # Strike every ~4.5 to 9.0 seconds
+                curr_idx += int(self.sample_rate * random.uniform(4.5, 9.0))
+                
+            for idx in strike_indices:
+                freq = random.choice([523.25, 587.33, 659.25, 783.99, 880.00, 1046.50])
+                chime_len = int(self.sample_rate * 3.5)
+                t_chime = np.linspace(0, 3.5, chime_len, endpoint=False)
+                # Exponential decay envelope
+                envelope = np.exp(-2.0 * t_chime) * 0.035
+                # Add chime harmonic overtone at 2.05x frequency
+                wave = np.sin(2 * np.pi * freq * t_chime) + 0.35 * np.sin(2 * np.pi * 2.05 * freq * t_chime)
+                end_idx = min(idx + chime_len, num_samples)
+                chimes[idx:end_idx] += wave[:end_idx - idx] * envelope[:end_idx - idx]
+                
+            # Soft atmospheric backing drone
+            backing_drone = 0.03 * np.sin(2 * np.pi * 110 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.03 * t))
+            mono = chimes + backing_drone
+
+        elif theme == "temple_garden":
+            # Deep stream bubbling water + soft wood-flute slides
+            noise = np.random.normal(0, 0.08, num_samples)
+            # Water lowpass filter
+            water = np.convolve(noise, np.ones(15)/15, mode='same')
+            water = water * (0.65 + 0.35 * np.sin(2 * np.pi * 0.08 * t))
+            
+            # Flute-like warm pentatonic shifts
+            flute = np.zeros(num_samples)
+            segment_len = int(self.sample_rate * 6.0)
+            num_segments = int(duration_sec / 6.0) + 1
+            random.seed(int(duration_sec))
+            for s_idx in range(num_segments):
+                # Choose notes from a peaceful Japanese pentatonic scale (A, B, C, E, F)
+                note_freq = random.choice([220.0, 246.94, 261.63, 329.63, 349.23, 440.0])
+                start_f = int(s_idx * segment_len)
+                end_f = min(start_f + segment_len, num_samples)
+                if end_f > start_f:
+                    curr_len = end_f - start_f
+                    t_seg = np.linspace(0, curr_len/self.sample_rate, curr_len, endpoint=False)
+                    # Breathing shape envelope for the flute note
+                    envelope = 0.02 * np.sin(np.pi * t_seg / (curr_len/self.sample_rate))
+                    flute[start_f:end_f] += np.sin(2 * np.pi * note_freq * t_seg) * envelope
+                    
+            mono = water + flute
+
+        elif theme == "shamanic_heartbeat":
+            # Procedural double heartbeat pulse drum at 55 BPM (1.1s cycle)
+            heartbeat = np.zeros(num_samples)
+            pulse_len = int(self.sample_rate * 1.1)
+            num_pulses = int(duration_sec / 1.1) + 1
+            
+            t_pulse = np.linspace(0, 1.1, pulse_len, endpoint=False)
+            p1 = np.exp(-((t_pulse - 0.15) / 0.04) ** 2)
+            p2 = 0.65 * np.exp(-((t_pulse - 0.44) / 0.04) ** 2)
+            # Low 55Hz drum heartbeat hum
+            template = (p1 + p2) * np.sin(2 * np.pi * 55 * t_pulse) * 0.09
+            
+            for i in range(num_pulses):
+                start = int(i * pulse_len)
+                end = min(start + pulse_len, num_samples)
+                if end > start:
+                    heartbeat[start:end] += template[:end - start]
+                    
+            # Soft warm desert breeze (modulated brown noise) backing
+            noise = np.random.normal(0, 0.12, num_samples)
+            brown = np.cumsum(noise)
+            brown = brown - np.mean(brown)
+            brown = brown / np.max(np.abs(brown)) * 0.04
+            breeze = brown * (0.7 + 0.3 * np.sin(2 * np.pi * 0.05 * t))
+            
+            mono = heartbeat + breeze
             
         else: # Default quiet drone
             mono = 0.04 * np.sin(2 * np.pi * 110 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.02 * t))
             
         # 2. Add Phase Stereo Widening (delay the right channel slightly)
-        # Shift right channel by ~200 samples (4.5ms) to create immersive wide space
         shift_samples = 200
         left_channel = mono
         right_channel = np.roll(mono, shift_samples)
@@ -158,22 +294,21 @@ class AudioEngine:
         sr, narration_data = wavfile.read(narration_path)
         duration_sec = len(narration_data) / sr
         
-        # Calculate target duration based on target session length (in minutes)
-        target_duration = duration_sec
-        if session_length > 0:
-            target_duration = max(duration_sec, session_length * 60.0)
+        # The session duration should match the spoken narration exactly (plus a 2.0-second fade-out buffer),
+        # so that the audio and video stop within 3 seconds of the script narration ending.
+        target_duration = duration_sec + 2.0
             
         logger.info(f"Narration duration: {duration_sec:.2f}s, Target duration: {target_duration:.2f}s. Synthesizing layers...")
         
         # 2. Generate Binaural Beats
         binaural_data = self.generate_binaural_beats(target_duration, binaural_freq)
-        binaural_data = self.apply_fades(binaural_data, fade_in_sec=5.0, fade_out_sec=10.0)
+        binaural_data = self.apply_fades(binaural_data, fade_in_sec=5.0, fade_out_sec=2.5)
         binaural_wav_path = os.path.join(task_dir, "binaural_layer.wav")
         wavfile.write(binaural_wav_path, self.sample_rate, binaural_data)
         
         # 3. Generate Ambient Music Theme
         ambient_data = self.generate_ambient_track(target_duration, music_theme)
-        ambient_data = self.apply_fades(ambient_data, fade_in_sec=8.0, fade_out_sec=15.0)
+        ambient_data = self.apply_fades(ambient_data, fade_in_sec=8.0, fade_out_sec=3.0)
         ambient_wav_path = os.path.join(task_dir, "ambient_layer.wav")
         wavfile.write(ambient_wav_path, self.sample_rate, ambient_data)
         

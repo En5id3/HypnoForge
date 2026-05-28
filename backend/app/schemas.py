@@ -23,6 +23,8 @@ class GenerationCreate(BaseModel):
     audio_pitch: Optional[float] = 1.0
     audio_calmness: Optional[int] = 0
     ambient_volume: Optional[float] = 0.45
+    video_theme: Optional[str] = "sacred_geometry"
+    video_format: Optional[str] = "long_form"
 
 class GenerationResponse(BaseModel):
     id: str
@@ -37,6 +39,8 @@ class GenerationResponse(BaseModel):
     audio_pitch: float
     audio_calmness: int
     ambient_volume: float
+    video_theme: str
+    video_format: str
     status: str
     audio_url: Optional[str] = None
     video_url: Optional[str] = None
