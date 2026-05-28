@@ -12,14 +12,14 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
     
     # Database
-    DATABASE_URL: str = "sqlite:///./hypnoforge.db"
+    DATABASE_URL: str = "sqlite:////tmp/hypnoforge.db" if os.getenv("VERCEL") else "sqlite:///./hypnoforge.db"
     
     # AI Engine
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     
     # Storage
-    OUTPUT_DIR: str = "output"
-    STATIC_DIR: str = "static"
+    OUTPUT_DIR: str = "/tmp/output" if os.getenv("VERCEL") else "output"
+    STATIC_DIR: str = "/tmp/static" if os.getenv("VERCEL") else "static"
     
     class Config:
         case_sensitive = True
