@@ -203,8 +203,37 @@ class TTSService:
                 # Default empty narration if nothing was processed
                 final_data = np.zeros((44100, 2), dtype=np.int16)
                 
+            raw_final_path = os.path.join(task_dir, "narration_raw.wav")
+            wavfile.write(raw_final_path, self.sample_rate, final_data)
+            
             final_path = os.path.join(task_dir, "narration_final.wav")
-            wavfile.write(final_path, self.sample_rate, final_data)
+            
+            # Build filters
+            # 1. Warm EQ: slight boost at 120Hz (+2.0dB) and 200Hz (+1.5dB), soften harsh 4.5kHz (-3.0dB)
+            eq_filter = "equalizer=f=120:width_type=q:width=1.0:g=2.0,equalizer=f=200:width_type=q:width=1.0:g=1.5,equalizer=f=4500:width_type=q:width=0.8:g=-3.0"
+            # 2. Cinematic reverb: multi-reflection room delay simulation via aecho (using 40ms, 60ms, 80ms reflections)
+            reverb_filter = "aecho=0.85:0.85:40|60|80:0.3|0.2|0.1"
+            # 3. Stereo width: subtle widening
+            width_filter = "extrastereo=m=1.1"
+            # 4. Peak Limiter: limit output to 0.9 (~ -1.0 dB) to prevent clipping and normalize peaks
+            limiter_filter = "alimiter=level_in=1.0:level_out=0.9:limit=0.9"
+            
+            filter_str = f"{eq_filter},{reverb_filter},{width_filter},{limiter_filter}"
+            
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", raw_final_path,
+                "-filter:a", filter_str,
+                "-ac", "2",
+                "-acodec", "pcm_s16le",
+                final_path
+            ]
+            logger.info(f"Running cinematic narration post-processing: {' '.join(cmd)}")
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            
+            if os.path.exists(raw_final_path):
+                os.remove(raw_final_path)
+                
             return final_path, captions
             
         finally:

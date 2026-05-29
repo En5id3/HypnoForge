@@ -95,149 +95,187 @@ class AudioEngine:
         t = np.linspace(0, duration_sec, num_samples, endpoint=False)
         theme = theme.lower().replace(" ", "_")
         
+        # Calculate progress-based transition envelopes for dynamic evolution
+        progress = t / duration_sec
+        
+        # 1. Induction (peaks in first 20%)
+        env_induction = 0.5 * (1.0 + np.cos(np.pi * np.clip(progress / 0.20, 0.0, 1.0)))
+        
+        # 2. Deep Trance (peaks around 10% to 40%)
+        env_deep = np.sin(np.pi * np.clip((progress - 0.10) / 0.30, 0.0, 1.0)) * np.where((progress >= 0.10) & (progress <= 0.40), 1.0, 0.0)
+        
+        # 3. Healing (peaks around 30% to 90%)
+        env_healing = np.sin(np.pi * np.clip((progress - 0.30) / 0.60, 0.0, 1.0)) * np.where((progress >= 0.30) & (progress <= 0.90), 1.0, 0.0)
+        
+        # 4. Awakening (rises in last 15%)
+        env_awakening = 0.5 * (1.0 - np.cos(np.pi * np.clip((progress - 0.85) / 0.15, 0.0, 1.0))) * np.where(progress >= 0.85, 1.0, 0.0)
+
         # 1. Base Synthesis
         if theme == "rain":
             # Filtered white noise with low frequency amplitude modulation
             noise = np.random.normal(0, 0.15, num_samples)
-            # Soft lowpass using rolling mean (window = 5)
-            mono = np.convolve(noise, np.ones(5)/5, mode='same')
-            # LFO amplitude modulation to simulate gusts
-            lfo = 0.7 + 0.3 * np.sin(2 * np.pi * 0.08 * t)
+            # Three filters: bright, balanced, muffled
+            muffled = np.convolve(noise, np.ones(25)/25, mode='same')
+            balanced = np.convolve(noise, np.ones(8)/8, mode='same')
+            bright = np.convolve(noise, np.ones(3)/3, mode='same')
+            
+            # Cross-fade based on trance depth
+            mono = env_deep * muffled + env_healing * balanced + (1.0 - env_deep - env_healing) * bright
+            # LFO amplitude modulation to simulate gusts (slower in deep trance)
+            lfo_freq = 0.08 - 0.05 * env_deep
+            lfo = 0.7 + 0.3 * np.sin(2 * np.pi * lfo_freq * t)
             mono = mono * lfo
             
         elif theme == "ocean":
-            # Deeper brown-ish noise with slow 10-second wave swell cycles
+            # Deeper brown-ish noise with slow wave swell cycles
             noise = np.random.normal(0, 0.25, num_samples)
-            # Integrate noise to make brown noise
             brown = np.cumsum(noise)
             brown = brown - np.mean(brown)
             brown = brown / np.max(np.abs(brown)) * 0.15
-            # Slow LFO (8-second cycle) for tides
-            lfo = 0.4 + 0.6 * (0.5 * (1.0 + np.sin(2 * np.pi * 0.125 * t)))
-            mono = brown * lfo
+            
+            # Muffle the ocean waves during deep trance
+            muffled = np.convolve(brown, np.ones(20)/20, mode='same')
+            mono_ocean = env_deep * muffled + (1.0 - env_deep) * brown
+            
+            # Slow LFO for tides, getting slower in deep trance
+            cycle_freq = 0.125 - 0.06 * env_deep
+            lfo = 0.4 + 0.6 * (0.5 * (1.0 + np.sin(2 * np.pi * cycle_freq * t)))
+            mono = mono_ocean * lfo
             
         elif theme == "cosmic_drones":
-            # Low frequency base drone + harmonically related frequencies modulated by slow independent LFOs
-            drone1 = 0.08 * np.sin(2 * np.pi * 60 * t)
-            drone2 = 0.05 * np.sin(2 * np.pi * 90 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.04 * t))
-            drone3 = 0.03 * np.sin(2 * np.pi * 150 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.02 * t))
+            # Low frequency base drone + harmonically related frequencies modulated by LFOs
+            base_freq = 60.0 - 15.0 * env_deep
+            drone1 = 0.08 * np.sin(2 * np.pi * base_freq * t)
+            drone2 = 0.05 * np.sin(2 * np.pi * (base_freq * 1.5) * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.04 * t))
+            # Healing frequency (432Hz harmonic) boosted during healing phase
+            healing_freq = 108.0 + 324.0 * env_healing
+            drone3 = 0.03 * np.sin(2 * np.pi * healing_freq * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.02 * t))
             mono = drone1 + drone2 + drone3
             
         elif theme == "tibetan_ambience":
             # Ethereal singing bowls: 144Hz (base), 216Hz, 288Hz, 432Hz
-            bowl1 = 0.07 * np.sin(2 * np.pi * 144 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.05 * t))
+            bowl1 = 0.08 * np.sin(2 * np.pi * 144 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * (0.05 - 0.02 * env_deep) * t))
             bowl2 = 0.04 * np.sin(2 * np.pi * 216 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.03 * t))
-            bowl3 = 0.03 * np.sin(2 * np.pi * 288 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.025 * t))
-            bowl4 = 0.02 * np.sin(2 * np.pi * 432 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.01 * t))
+            bowl3 = 0.03 * np.sin(2 * np.pi * 288 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.025 * t)) * (0.5 + 0.5 * env_healing)
+            bowl4 = 0.02 * np.sin(2 * np.pi * 432 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.01 * t)) * (0.3 + 0.7 * (env_healing + env_awakening))
             mono = bowl1 + bowl2 + bowl3 + bowl4
             
         elif theme in ["meditation_pads", "temple_atmosphere"]:
-            # C Minor 9th chord synth pads with shifting sweep filters
-            # C3=130.81Hz, Eb3=155.56Hz, G3=196.00Hz, Bb3=233.08Hz, D4=293.66Hz
-            c3 = 0.06 * np.sin(2 * np.pi * 130.81 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.04 * t))
-            eb3 = 0.05 * np.sin(2 * np.pi * 155.56 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.03 * t))
-            g3 = 0.04 * np.sin(2 * np.pi * 196.00 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.05 * t))
-            bb3 = 0.03 * np.sin(2 * np.pi * 233.08 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.025 * t))
-            d4 = 0.02 * np.sin(2 * np.pi * 293.66 * t) * (0.9 + 0.1 * np.sin(2 * np.pi * 0.015 * t))
+            # C Minor 9th chord synth pads
+            c3 = 0.07 * np.sin(2 * np.pi * 130.81 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.04 * t))
+            eb3 = 0.06 * np.sin(2 * np.pi * 155.56 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.03 * t))
+            g3 = 0.04 * np.sin(2 * np.pi * 196.00 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.05 * t)) * (0.5 + 0.5 * (1.0 - env_deep))
+            bb3 = 0.03 * np.sin(2 * np.pi * 233.08 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.025 * t)) * (0.5 + 0.5 * env_healing)
+            d4 = 0.02 * np.sin(2 * np.pi * 293.66 * t) * (0.9 + 0.1 * np.sin(2 * np.pi * 0.015 * t)) * (0.2 + 0.8 * (env_induction + env_awakening))
             mono = c3 + eb3 + g3 + bb3 + d4
             
         elif theme == "forest_ambience":
-            # Soft wind (white noise filtered) + tiny chirps modeled by pitch modulated sines
+            # Wind + crickets
             wind = np.random.normal(0, 0.05, num_samples)
-            mono_wind = np.convolve(wind, np.ones(8)/8, mode='same') * (0.8 + 0.2 * np.sin(2 * np.pi * 0.05 * t))
+            muffled_wind = np.convolve(wind, np.ones(15)/15, mode='same')
+            normal_wind = np.convolve(wind, np.ones(8)/8, mode='same')
+            mono_wind = (env_deep * muffled_wind + (1.0 - env_deep) * normal_wind) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.05 * t))
             
-            # Periodic crickets / birds (sweeps)
             chirp = 0.005 * np.sin(2 * np.pi * (1500 + 400 * np.sin(2 * np.pi * 20 * t)) * t)
-            # Gate chirp randomly or with an LFO
             gate = 0.5 * (1.0 + np.sin(2 * np.pi * 0.1 * t))
-            gate = np.where(gate > 0.85, 1.0, 0.0)
+            gate = np.where(gate > 0.85, 1.0, 0.0) * (1.0 - env_deep)
             
             mono = mono_wind + (chirp * gate)
-
+ 
         elif theme == "crystal_resonance":
-            # Quartz crystal singing bowls C major triad: 261.63Hz (C4), 329.63Hz (E4), 392.00Hz (G4), 523.25Hz (C5)
-            # Pulsing slowly with independent slow LFOs
-            bowl_c = 0.06 * np.sin(2 * np.pi * 261.63 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.04 * t))
+            # Quartz bowls
+            bowl_c = 0.07 * np.sin(2 * np.pi * 261.63 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.04 * t))
             bowl_e = 0.04 * np.sin(2 * np.pi * 329.63 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.03 * t))
             bowl_g = 0.04 * np.sin(2 * np.pi * 392.00 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.02 * t))
-            bowl_c5 = 0.02 * np.sin(2 * np.pi * 523.25 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.015 * t))
-            # Shifting crystalline high hum
-            crystal_hum = 0.01 * np.sin(2 * np.pi * 1046.50 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.05 * t))
+            bowl_c5 = 0.02 * np.sin(2 * np.pi * 523.25 * t) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.015 * t)) * (0.3 + 0.7 * env_healing)
+            crystal_hum = 0.015 * np.sin(2 * np.pi * 1046.50 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.05 * t)) * (1.0 - env_deep)
             mono = bowl_c + bowl_e + bowl_g + bowl_c5 + crystal_hum
-
+ 
         elif theme == "celestial_chimes":
-            # Procedural metal wind chimes triggered at random intervals
+            # Wind chimes triggered with random intervals
             chimes = np.zeros(num_samples)
-            # Seed strikes deterministically based on duration
             random.seed(int(duration_sec))
             
             strike_indices = []
             curr_idx = int(self.sample_rate * 2)
             while curr_idx < num_samples - int(self.sample_rate * 3.5):
                 strike_indices.append(curr_idx)
-                # Strike every ~4.5 to 9.0 seconds
                 curr_idx += int(self.sample_rate * random.uniform(4.5, 9.0))
                 
             for idx in strike_indices:
-                freq = random.choice([523.25, 587.33, 659.25, 783.99, 880.00, 1046.50])
+                strike_time = idx / self.sample_rate
+                strike_progress = strike_time / duration_sec
+                is_deep = strike_progress > 0.10 and strike_progress < 0.40
+                
+                if is_deep:
+                    freq = random.choice([523.25, 587.33, 659.25])
+                    volume_factor = 0.015
+                else:
+                    freq = random.choice([523.25, 587.33, 659.25, 783.99, 880.00, 1046.50])
+                    volume_factor = 0.035
+                    
                 chime_len = int(self.sample_rate * 3.5)
                 t_chime = np.linspace(0, 3.5, chime_len, endpoint=False)
-                # Exponential decay envelope
-                envelope = np.exp(-2.0 * t_chime) * 0.035
-                # Add chime harmonic overtone at 2.05x frequency
+                envelope = np.exp(-2.0 * t_chime) * volume_factor
                 wave = np.sin(2 * np.pi * freq * t_chime) + 0.35 * np.sin(2 * np.pi * 2.05 * freq * t_chime)
                 end_idx = min(idx + chime_len, num_samples)
                 chimes[idx:end_idx] += wave[:end_idx - idx] * envelope[:end_idx - idx]
                 
-            # Soft atmospheric backing drone
-            backing_drone = 0.03 * np.sin(2 * np.pi * 110 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.03 * t))
+            backing_freq = 110 - 40 * env_deep
+            backing_drone = 0.03 * np.sin(2 * np.pi * backing_freq * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.03 * t))
             mono = chimes + backing_drone
-
+ 
         elif theme == "temple_garden":
-            # Deep stream bubbling water + soft wood-flute slides
+            # Stream + flute
             noise = np.random.normal(0, 0.08, num_samples)
-            # Water lowpass filter
-            water = np.convolve(noise, np.ones(15)/15, mode='same')
-            water = water * (0.65 + 0.35 * np.sin(2 * np.pi * 0.08 * t))
+            water_muffled = np.convolve(noise, np.ones(30)/30, mode='same')
+            water_normal = np.convolve(noise, np.ones(15)/15, mode='same')
+            water = (env_deep * water_muffled + (1.0 - env_deep) * water_normal) * (0.65 + 0.35 * np.sin(2 * np.pi * 0.08 * t))
             
-            # Flute-like warm pentatonic shifts
             flute = np.zeros(num_samples)
             segment_len = int(self.sample_rate * 6.0)
             num_segments = int(duration_sec / 6.0) + 1
             random.seed(int(duration_sec))
             for s_idx in range(num_segments):
-                # Choose notes from a peaceful Japanese pentatonic scale (A, B, C, E, F)
-                note_freq = random.choice([220.0, 246.94, 261.63, 329.63, 349.23, 440.0])
+                progress_seg = (s_idx * segment_len) / num_samples
+                if progress_seg > 0.10 and progress_seg < 0.40:
+                    note_freq = random.choice([220.0, 246.94, 261.63])
+                    vol_factor = 0.01
+                else:
+                    note_freq = random.choice([220.0, 246.94, 261.63, 329.63, 349.23, 440.0])
+                    vol_factor = 0.02
+                    
                 start_f = int(s_idx * segment_len)
                 end_f = min(start_f + segment_len, num_samples)
                 if end_f > start_f:
                     curr_len = end_f - start_f
                     t_seg = np.linspace(0, curr_len/self.sample_rate, curr_len, endpoint=False)
-                    # Breathing shape envelope for the flute note
-                    envelope = 0.02 * np.sin(np.pi * t_seg / (curr_len/self.sample_rate))
+                    envelope = vol_factor * np.sin(np.pi * t_seg / (curr_len/self.sample_rate))
                     flute[start_f:end_f] += np.sin(2 * np.pi * note_freq * t_seg) * envelope
                     
             mono = water + flute
-
+ 
         elif theme == "shamanic_heartbeat":
-            # Procedural double heartbeat pulse drum at 55 BPM (1.1s cycle)
+            # Procedural dynamic heartbeat drum
             heartbeat = np.zeros(num_samples)
-            pulse_len = int(self.sample_rate * 1.1)
-            num_pulses = int(duration_sec / 1.1) + 1
-            
-            t_pulse = np.linspace(0, 1.1, pulse_len, endpoint=False)
-            p1 = np.exp(-((t_pulse - 0.15) / 0.04) ** 2)
-            p2 = 0.65 * np.exp(-((t_pulse - 0.44) / 0.04) ** 2)
-            # Low 55Hz drum heartbeat hum
-            template = (p1 + p2) * np.sin(2 * np.pi * 55 * t_pulse) * 0.09
-            
-            for i in range(num_pulses):
-                start = int(i * pulse_len)
-                end = min(start + pulse_len, num_samples)
-                if end > start:
-                    heartbeat[start:end] += template[:end - start]
-                    
-            # Soft warm desert breeze (modulated brown noise) backing
+            curr_idx = 0
+            while curr_idx < num_samples:
+                progress_idx = curr_idx / num_samples
+                bpm = 55 - 10 * np.clip(np.interp(progress_idx, [0.10, 0.30, 0.80, 0.95], [0.0, 1.0, 1.0, 0.0]), 0, 1)
+                cycle_len_sec = 60.0 / bpm
+                pulse_len = int(self.sample_rate * 0.6)
+                
+                t_pulse = np.linspace(0, 0.6, pulse_len, endpoint=False)
+                p1 = np.exp(-((t_pulse - 0.10) / 0.04) ** 2)
+                p2 = 0.65 * np.exp(-((t_pulse - 0.35) / 0.04) ** 2)
+                
+                drum_pitch = 55 - 15 * np.clip(np.interp(progress_idx, [0.10, 0.30], [0.0, 1.0]), 0, 1)
+                template = (p1 + p2) * np.sin(2 * np.pi * drum_pitch * t_pulse) * 0.09
+                
+                end_idx = min(curr_idx + pulse_len, num_samples)
+                heartbeat[curr_idx:end_idx] += template[:end_idx - curr_idx]
+                curr_idx += int(self.sample_rate * cycle_len_sec)
+                
             noise = np.random.normal(0, 0.12, num_samples)
             brown = np.cumsum(noise)
             brown = brown - np.mean(brown)
@@ -247,7 +285,8 @@ class AudioEngine:
             mono = heartbeat + breeze
             
         else: # Default quiet drone
-            mono = 0.04 * np.sin(2 * np.pi * 110 * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.02 * t))
+            base_freq = 110 - 40 * env_deep
+            mono = 0.04 * np.sin(2 * np.pi * base_freq * t) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.02 * t))
             
         # 2. Add Phase Stereo Widening (delay the right channel slightly)
         shift_samples = 200
@@ -314,10 +353,9 @@ class AudioEngine:
         wavfile.write(ambient_wav_path, self.sample_rate, ambient_data)
         
         # 4. Layer & Mix using FFmpeg
-        # Adjust volumes based on user-defined ambient_volume and calmness parameter (0 to 10)
-        # Normal mix: Narration = 1.0, Ambient = user-selected (e.g. 0.45), Binaural = 0.20
+        # Normal mix: Narration = 1.0, Ambient = user-selected (scaled by 0.80 to keep it -25dB below normalized voice), Binaural = 0.20
         # Highly calm mix: Ambient gets quieter (attenuated by up to 50%), Binaural hum gets warmer (up to 0.30)
-        ambient_vol = ambient_volume * (1.0 - 0.5 * (calmness / 10.0))
+        ambient_vol = (ambient_volume * 0.80) * (1.0 - 0.5 * (calmness / 10.0))
         binaural_vol = 0.20 + (calmness / 10.0) * 0.10
         
         final_mp3_path = os.path.join(task_dir, "session_final.mp3")
